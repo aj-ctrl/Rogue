@@ -1,50 +1,36 @@
-from numpy import isin
-import tcod
+from typing import Set, Iterable, Any
+
+from tcod.context import Context
+from tcod.console import Console
 
 from actions import EscapeAction, MovementAction
+from entity import Entity
 from input_handlers import EventHandler
 
-def main() -> None:
-    screen_width = 80
-    screen_height = 50
 
-    player_x = int(screen_width / 2)
-    player_y = int(screen_height / 2)
+class Engine:
+    def __init__(self, entities: Set[Entity], event_handler: EventHandler, player: Entity):
+        self.entities = entities
+        self.event_handler = event_handler
+        self.player = player
 
-    tileset = tcod.tileset.load_tilesheet(
-        "dejavu10x10_gs_tc.png", 32, 8, tcod.tileset.CHARMAP_TCOD
-    )
+    def handle_events(self, events: Iterable[Any]) -> None:
+        for event in events:
+            action = self.event_handler.dispatch(event)
 
-    event_handler = EventHandler()
+            if action is None:
+                continue
 
-    with tcod.context.new_terminal(
-        screen_width,
-        screen_height,
-        tileset=tileset,
-        title="Yet Another Roguelike Tutorial",
-        vsync=True,
-    ) as context:
-        root_console = tcod.Console(screen_width, screen_height, order="F")
-        while True:
-            root_console.print(x=player_x, y=player_y, string="@")
+            if isinstance(action, MovementAction):
+                self.player.move(dx=action.dx, dy=action.dy)
 
-            context.present(root_console)
+            elif isinstance(action, EscapeAction):
+                raise SystemExit()
 
-            root_console.clear()
+    def render(self, console: Console, context: Context) -> None:
+        for entity in self.entities:
+            console.print(entity.x, entity.y, entity.char, fg=entity.color)
 
-            for event in tcod.event.wait():
-                action = event_handler.dispatch(event)
+        context.present(console)
 
-                if action is None:
-                    continue
-
-                if isinstance(action, MovementAction):
-                    player_x += action.dx
-                    player_y += action.dy
-                
-                elif isinstance(action, EscapeAction):
-                    raise SystemExit()
-
-
-if __name__ == "__main__":
-    main()
+        console.clear()
